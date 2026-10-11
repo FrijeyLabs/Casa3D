@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1b1712">
+  <title>Casa Fraylin y Marlenis</title>
+  <meta name="description" content="Recorrido 3D en primera persona de la Casa Fraylin y Marlenis.">
+  <style>
+    :root {
+      --ink: #f6efe4;
+      --muted: #cbbfae;
+      --accent: #e0a96d;
+      --panel: rgba(24, 20, 16, 0.78);
+      --line: rgba(246, 239, 228, 0.18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1712; color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
+    #app, #app canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+    .hidden { display: none !important; }
+
+    #overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px;
+      background: linear-gradient(180deg, rgba(20,16,12,0.15) 0%, rgba(20,16,12,0.65) 70%); }
+    .card { width: min(520px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 26px 26px 22px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+    .eyebrow { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+    h1 { margin: 0 0 4px; font-size: clamp(24px, 5vw, 32px); font-weight: 650; letter-spacing: -0.01em; }
+    .sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+    .progress { height: 4px; background: var(--line); border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
+    #bar { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+    body.loaded .progress { visibility: hidden; }
+    #start { width: 100%; padding: 13px 16px; font: inherit; font-weight: 600; font-size: 16px; color: #1b1712; background: var(--accent);
+      border: 0; border-radius: 10px; cursor: pointer; }
+    #start:disabled { opacity: .55; cursor: progress; }
+    .keys { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 18px 0 0; font-size: 13px; color: var(--muted); }
+    .keys kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); background: rgba(255,255,255,0.08);
+      border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; white-space: nowrap; justify-self: start; }
+    .touch-only { display: none; }
+    body.touch .touch-only { display: grid; }
+    body.touch .desk-only { display: none; }
+
+    #hud { position: fixed; inset: 0; pointer-events: none; }
+    #cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
+      background: rgba(255,255,255,0.85); box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); }
+    #prompt { position: absolute; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); padding: 7px 12px; border-radius: 8px;
+      background: var(--panel); border: 1px solid var(--line); font-size: 14px; opacity: 0; transition: opacity .15s; white-space: nowrap; }
+    #prompt.show { opacity: 1; }
+
+    #touchui { position: fixed; inset: 0; }
+    #touchzone { position: absolute; inset: 0; }
+    #stick { position: absolute; width: 130px; height: 130px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35);
+      background: rgba(0,0,0,0.15); opacity: 0; pointer-events: none; transition: opacity .1s; }
+    #stick.active { opacity: 1; }
+    #knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.55); }
+    .tbtn { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.45);
+      background: rgba(0,0,0,0.3); color: #fff; font: 600 12px/1.1 inherit; display: grid; place-items: center; text-align: center;
+      padding: 0; -webkit-tap-highlight-color: transparent; }
+    .tbtn.pressed, .tbtn.on { background: rgba(224,169,109,0.7); }
+    #btnJump { right: calc(24px + env(safe-area-inset-right)); bottom: calc(28px + env(safe-area-inset-bottom)); width: 76px; height: 76px; }
+    #btnCrouch { right: calc(112px + env(safe-area-inset-right)); bottom: calc(22px + env(safe-area-inset-bottom)); }
+    #btnUse { right: calc(30px + env(safe-area-inset-right)); bottom: calc(120px + env(safe-area-inset-bottom)); display: none; }
+    #btnUse.show { display: grid; }
+    .hint { position: absolute; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); font-size: 12px; color: rgba(255,255,255,0.7);
+      pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js", "three/addons/": "./lib/addons/" } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="overlay">
+    <div class="card">
+      <p class="eyebrow">Recorrido 3D</p>
+      <h1>Casa Fraylin y Marlenis</h1>
+      <p class="sub">Explora la casa desde la calle hasta cada habitación y el techo.</p>
+      <div class="progress"><div id="bar"></div></div>
+      <button id="start" disabled><span id="status">Cargando…</span></button>
+      <div class="keys desk-only">
+        <kbd>W A S D</kbd><span>Caminar</span>
+        <kbd>Ratón</kbd><span>Mirar alrededor</span>
+        <kbd>Shift</kbd><span>Correr</span>
+        <kbd>Espacio</kbd><span>Saltar</span>
+        <kbd>C</kbd><span>Agacharse / levantarse</span>
+        <kbd>E</kbd><span>Abrir o cerrar puertas</span>
+        <kbd>Esc</kbd><span>Pausa</span>
+      </div>
+      <div class="keys touch-only">
+        <kbd>Izquierda</kbd><span>Arrastra para caminar</span>
+        <kbd>Derecha</kbd><span>Arrastra para mirar</span>
+        <kbd>Botones</kbd><span>Saltar, agacharse y abrir puertas</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div id="cross"></div>
+    <div id="prompt"></div>
+  </div>
+
+  <div id="touchui" class="hidden">
+    <div id="touchzone"></div>
+    <div id="stick"><div id="knob"></div></div>
+    <button class="tbtn" id="btnUse">Abrir</button>
+    <button class="tbtn" id="btnCrouch">Agachar</button>
+    <button class="tbtn" id="btnJump">Saltar</button>
+    <div class="hint">Izquierda: caminar · Derecha: mirar</div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
